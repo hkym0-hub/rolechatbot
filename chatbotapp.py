@@ -98,6 +98,3 @@ for msg in st.session_state.messages:
             st.markdown(msg["content"])
         elif msg["role"] == "assistant":
             st.markdown(msg.get("text_content", ""))
-            
-# --- Footer ---
-st.caption("Built for 'Art & Advanced Big Data' • Prof. Jahwan Koo (SKKU)")
