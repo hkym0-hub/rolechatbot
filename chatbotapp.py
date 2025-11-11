@@ -1,5 +1,5 @@
 import streamlit as st
-import openai
+from openai import OpenAI
 
 st.title("🎨 AI Art Coach (OpenAI GPT)")
 
@@ -9,7 +9,7 @@ if not api_key:
     st.warning("🔑 Please enter your OpenAI API key to continue.")
     st.stop()
 
-openai.api_key = api_key
+client = OpenAI(api_key=api_key)
 
 # --- Coach Roles ---
 coach_roles = {
@@ -38,13 +38,12 @@ user_input = st.chat_input("Ask your coach a question...")
 if user_input:
     st.session_state["messages"].append({"role": "user", "content": user_input})
     with st.spinner(f"🎨 {selected_role} is thinking..."):
-        # Send conversation to OpenAI
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=st.session_state["messages"],
             temperature=0.7
         )
-        reply = response.choices[0].message["content"]
+        reply = response.choices[0].message.content
         st.session_state["messages"].append({"role": "assistant", "content": reply})
 
 # --- Display chat ---
