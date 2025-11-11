@@ -1,17 +1,17 @@
 import streamlit as st
 from openai import OpenAI
 
-# --- Page Title (from screenshot) ---
-st.title("🎭 Role-based Creative Chatbot")
+# --- Page Title ---
+st.title("🎭 Role-based Art Coach Chatbot")
 
-# --- Sidebar (for settings, as in screenshot) ---
+# --- Sidebar Settings ---
 with st.sidebar:
     st.title("🔑 API & Role Settings")
     
     # 1. API Key input
     api_key = st.text_input("Enter your OpenAI API Key:", type="password")
     
-    # 2. Coach Roles (from your original code)
+    # 2. Coach Roles
     coach_roles = {
         "🖍️ Drawing Coach": "You are a patient drawing coach for beginners. Help with sketching, line, proportion, perspective, and observation.",
         "🎨 Color Coach": "You are a color theory coach. Explain color harmony, mood, mixing, and practical palette design.",
@@ -24,11 +24,14 @@ with st.sidebar:
     selected_role_key = st.selectbox("Choose a role:", list(coach_roles.keys()))
     selected_role_prompt = coach_roles[selected_role_key]
 
-    # 3. Info Box (from screenshot)
     st.info(f"{selected_role_prompt}")
     
-    # 4. Image Generation Checkbox (moved from main area)
-    generate_image = st.checkbox("Show example image for this advice")
+    # 3. Optional Customizations
+    st.subheader("🛠️ Optional Enhancements")
+    show_steps = st.checkbox("Provide step-by-step instructions")
+    show_exercises = st.checkbox("Include exercises / mini-quizzes")
+    show_tables = st.checkbox("Include comparison tables")
+    show_references = st.checkbox("Include links to tutorials / references")
 
 # --- API Key Check ---
 if not api_key:
@@ -47,69 +50,54 @@ if "current_role" not in st.session_state or st.session_state.current_role != se
     st.session_state.messages = [{"role": "system", "content": selected_role_prompt}]
     st.session_state.current_role = selected_role_key
 
-# --- Handle new user input ---
-user_input = st.chat_input("e.g., How can I express sadness in movement?")
+# --- User input ---
+user_input = st.chat_input("Ask your coach a question...")
 
 if user_input:
-    # 1. Add user message to state
+    # 1. Add user message
     st.session_state.messages.append({"role": "user", "content": user_input})
     
+    # 2. Build system enhancements
+    extra_instructions = ""
+    if show_steps:
+        extra_instructions += " Break down your answer into clear step-by-step instructions."
+    if show_exercises:
+        extra_instructions += " Suggest a short exercise or mini-quiz related to the topic."
+    if show_tables:
+        extra_instructions += " Include comparison tables where helpful."
+    if show_references:
+        extra_instructions += " Provide links to relevant free online tutorials or resources."
+    
     with st.spinner(f"🎨 {selected_role_key} is thinking..."):
-        # 2. Prepare messages for API
-        # (Filter out image URLs, keeping only text context)
+        # Prepare messages for OpenAI
         api_messages = []
         for msg in st.session_state.messages:
             if msg["role"] == "system":
-                api_messages.append({"role": "system", "content": msg["content"]})
-            elif msg["role"] == "user":
-                api_messages.append({"role": "user", "content": msg["content"]})
-            elif msg["role"] == "assistant" and "text_content" in msg:
-                # Only send assistant's text replies as history
-                api_messages.append({"role": "assistant", "content": msg["text_content"]})
-
-        # 3. Get text reply from OpenAI
+                # Append extra instructions only to system prompt
+                api_messages.append({"role": "system", "content": msg["content"] + extra_instructions})
+            else:
+                api_messages.append(msg)
+        
+        # Get response
         chat_resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=api_messages,
             temperature=0.7
         )
         reply_text = chat_resp.choices[0].message.content
-        # Add text reply to state
+        
+        # Add to state
         st.session_state.messages.append({"role": "assistant", "text_content": reply_text})
 
-        # 4. Generate example image if checked
-        if generate_image:
-            with st.spinner("Generating example image..."):
-                # Prompt based on the advice, not the question
-                image_prompt = f"An illustrative example for this art advice: {reply_text}. Style should be a clear, educational art diagram or sketch."
-                try:
-                    image_resp = client.images.generate(
-                        model="dall-e-3", # Using DALL-E 3
-                        prompt=image_prompt,
-                        size="1024x1024" # 512x512 is also an option
-                    )
-                    image_url = image_resp.data[0].url
-                    # Add image reply to state
-                    st.session_state.messages.append({"role": "assistant", "image_url": image_url})
-                except Exception as e:
-                    st.error(f"Could not generate image: {e}")
-
-# --- Display chat history (runs every time) ---
+# --- Display chat ---
 for msg in st.session_state.messages:
     if msg["role"] == "system":
-        continue  # Don't display the system prompt
-    
+        continue  # don't display system
     with st.chat_message(msg["role"]):
         if msg["role"] == "user":
             st.markdown(msg["content"])
-        
         elif msg["role"] == "assistant":
-            # Display text content if it exists
-            if "text_content" in msg:
-                st.markdown(msg["text_content"])
-            # Display image if it exists
-            if "image_url" in msg:
-                st.image(msg["image_url"], caption="Example Illustration")
-
-# --- Footer (from screenshot) ---
+            st.markdown(msg.get("text_content", ""))
+            
+# --- Footer ---
 st.caption("Built for 'Art & Advanced Big Data' • Prof. Jahwan Koo (SKKU)")
